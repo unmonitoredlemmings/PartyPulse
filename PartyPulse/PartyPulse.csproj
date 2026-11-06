@@ -1,0 +1,22 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>1.0.2.0</Version>
+    <Author>unmonitoredlemmings</Author>
+    <Name>PartyPulse</Name>
+    <RepoUrl>https://github.com/unmonitoredlemmings/PartyPulse</RepoUrl>
+    <Punchline>Keep an ear on the party members who need you.</Punchline>
+    <Description>Watch one party member, a duo, or your entire party. Loop a custom sound when monitored HP reaches your chosen threshold, and stop when everyone recovers.</Description>
+    <Tags>party;health;alert;audio</Tags>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PartyPulse.Core\PartyPulse.Core.csproj" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <Content Include="Assets\low-hp-pokemon.mp3" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\uwu-hannah.mp3" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
