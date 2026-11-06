@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="PartyPulse.Core/PartyPulse.Core.csproj" />
+  <Project Path="PartyPulse/PartyPulse.csproj" />
+  <Project Path="PartyPulse.Tests/PartyPulse.Tests.csproj" />
+  <Project Path="PartyPulse.AudioTests/PartyPulse.AudioTests.csproj" />
+</Solution>
