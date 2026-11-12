@@ -28,6 +28,12 @@
           "NAudio.WinMM": "2.2.1"
         }
       },
+      "NLayer": {
+        "type": "Direct",
+        "requested": "[2.0.1, )",
+        "resolved": "2.0.1",
+        "contentHash": "0nhnDRx98u7zXXbPIF11QYYupOOOQ9W22eqoyQyXn/gitRXbf9zAK8YfxyqS1Ix+TSqJv8EPNSk3VkDb7fChKw=="
+      },
       "NAudio.Asio": {
         "type": "Transitive",
         "resolved": "2.2.1",

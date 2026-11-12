@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>1.0.2.0</Version>
+    <Version>1.0.3.0</Version>
     <Author>unmonitoredlemmings</Author>
     <Name>PartyPulse</Name>
     <RepoUrl>https://github.com/unmonitoredlemmings/PartyPulse</RepoUrl>
@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PartyPulse.Core\PartyPulse.Core.csproj" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="NLayer" Version="2.0.1" />
     <Content Include="Assets\low-hp-pokemon.mp3" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\uwu-hannah.mp3" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
