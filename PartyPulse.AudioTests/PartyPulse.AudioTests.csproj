@@ -7,8 +7,10 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="NLayer" Version="2.0.1" />
     <Compile Include="..\PartyPulse\Audio\AlertAudio.cs" Link="AlertAudio.cs" />
     <Compile Include="..\PartyPulse\Audio\LoopStream.cs" Link="LoopStream.cs" />
     <Compile Include="..\PartyPulse\Audio\OneShotAudio.cs" Link="OneShotAudio.cs" />
+    <Compile Include="..\PartyPulse\Audio\SoundFileReader.cs" Link="SoundFileReader.cs" />
   </ItemGroup>
 </Project>

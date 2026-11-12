@@ -62,7 +62,7 @@ using (var audio = new AlertAudio())
     File.Delete(malformed);
 }
 
-// The decoded samples use AudioFileReader.Volume, exactly as the alert engine does.
+// The decoded samples use SoundFileReader.Volume, exactly as the alert engine does.
 // No WaveOut device is constructed for these tests and no sound is played.
 var generatedWave = Path.Combine(AppContext.BaseDirectory, "volume-check.wav");
 try
@@ -75,6 +75,7 @@ try
     }
     ValidateSound(generatedWave, "generated WAV");
     ValidateOneShot(generatedWave);
+    ValidateThreadedPlayback(generatedWave);
 }
 finally
 {
@@ -82,9 +83,130 @@ finally
 }
 
 foreach (var path in args)
-    ValidateSound(Path.GetFullPath(path), "supplied sound");
+{
+    var fullPath = Path.GetFullPath(path);
+    ValidateSound(fullPath, "supplied sound");
+    ValidateOneShot(fullPath);
+    ValidateThreadedPlayback(fullPath);
+}
+
+ValidateWaveFormatsAndFailures();
 
 Console.WriteLine($"PASS: {checks} audio checks (no sound played).");
+
+void ValidateThreadedPlayback(string path)
+{
+    var expected = Decode(path, 1f).Samples;
+    var expectedBytes = new byte[expected.Length * sizeof(float)];
+    Buffer.BlockCopy(expected, 0, expectedBytes, 0, expectedBytes.Length);
+    var output = new FakeWavePlayer();
+    using var alert = new AlertAudio(() => output);
+    // Reproduce the original topology: Apply/probe on STA, decoding and rewind on MTA.
+    RunOnThread(() => alert.Configure(path, 1f), ApartmentState.STA);
+    Equal(alert.Error, null, "cross-thread alert: STA preparation succeeds");
+    alert.SetAlert(true);
+    byte[] repeated = [];
+    RunOnThread(() => repeated = output.ReadBytes(expectedBytes.Length * 2 + 512), ApartmentState.MTA);
+    Equal(repeated.Length, expectedBytes.Length * 2 + 512, "cross-thread alert: worker fills through two loop boundaries");
+    Equal(repeated.Where((value, index) => value != expectedBytes[index % expectedBytes.Length]).Any(), false,
+        "cross-thread alert: every loop repeats exact decoded samples");
+    Equal(alert.Error, null, "cross-thread alert: no decoder or COM failure");
+    alert.SetAlert(false);
+    Equal(output.PlaybackState, PlaybackState.Paused, "alert: recovery pauses loop");
+    var pausedPosition = output.Position;
+    alert.SetAlert(true);
+    Equal(output.Position, pausedPosition, "alert: another dip resumes without seeking");
+    alert.SetVolume(0f);
+    RunOnThread(() => repeated = output.ReadBytes(512), ApartmentState.MTA);
+    var mutedSamples = new float[repeated.Length / sizeof(float)];
+    Buffer.BlockCopy(repeated, 0, mutedSamples, 0, repeated.Length);
+    Equal(mutedSamples.All(value => value == 0f), true, "alert: live mute reaches worker samples");
+    alert.Dispose();
+    Equal(output.IsDisposed, true, "alert: retirement releases worker resources");
+
+    var recoveryOutput = new FakeWavePlayer();
+    using var recovery = new OneShotAudio(() => recoveryOutput);
+    RunOnThread(() => { recovery.Configure(path, 1f); recovery.PlayOnce(); }, ApartmentState.STA);
+    var finiteBytes = 0;
+    RunOnThread(() => finiteBytes = recoveryOutput.PumpToEnd(), ApartmentState.MTA);
+    Equal(finiteBytes, expectedBytes.Length, "cross-thread recovery: complete MP3/WAV reaches EOF");
+    Equal(recovery.Error, null, "cross-thread recovery: natural EOF has no COM failure");
+    Equal(recoveryOutput.IsDisposed, true, "cross-thread recovery: EOF releases resources");
+    using var exclusive = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None);
+    Equal(exclusive.Length > 0, true, "cross-thread playback: both players release the input file");
+}
+
+void ValidateWaveFormatsAndFailures()
+{
+    var path = Path.Combine(AppContext.BaseDirectory, "reader-format-check.wav");
+    try
+    {
+        foreach (var bits in new[] { 8, 16, 24, 32 })
+        {
+            using (var writer = new WaveFileWriter(path, new WaveFormat(8000, bits, 1)))
+            {
+                var bytes = new List<byte>();
+                foreach (var sample in new[] { -0.5f, 0f, 0.5f })
+                {
+                    var value = bits == 8 ? (long)(sample * 128 + 128) : (long)(sample * (1L << (bits - 1)));
+                    for (var index = 0; index < bits / 8; index++)
+                        bytes.Add((byte)(value >> (index * 8)));
+                }
+                writer.Write(bytes.ToArray(), 0, bytes.Count);
+            }
+            var decoded = Decode(path, 1f).Samples;
+            Equal(decoded.SequenceEqual(new[] { -0.5f, 0f, 0.5f }), true, $"WAV: PCM {bits}-bit decoded without codecs");
+            using var reader = new SoundFileReader(path);
+            var scratch = new byte[20];
+            Equal(reader.Read(scratch, 3, 12), 12, "reader: byte buffer offset need not be float-aligned");
+            reader.Position = 0;
+            var rewind = new float[3];
+            Equal(reader.Read(rewind, 0, 3), 3, "WAV: seek resets sample position");
+            Equal(rewind.SequenceEqual(decoded), true, "WAV: rewound samples match");
+        }
+
+        using (var writer = new WaveFileWriter(path, WaveFormat.CreateMuLawFormat(8000, 1)))
+            writer.Write(new byte[100], 0, 100);
+        using var alert = new AlertAudio(() => throw new Exception("Unsupported files must fail before opening a device."));
+        alert.Configure(path, 1f);
+        Equal(alert.Error?.Contains("uncompressed PCM/float WAV or an MP3"), true, "compressed WAV: actionable error without codec fallback");
+        using (var exclusive = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            Equal(exclusive.Length > 0, true, "unsupported WAV: failed constructor releases file");
+
+        using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(8000, 1))) { }
+        alert.Configure(path, 1f);
+        Equal(alert.Error?.Contains("no playable audio"), true, "empty WAV: rejected at Apply");
+    }
+    finally { File.Delete(path); }
+
+    var malformed = Path.ChangeExtension(path, ".mp3");
+    try
+    {
+        File.WriteAllText(malformed, "This is not an MP3");
+        using var recovery = new OneShotAudio();
+        recovery.Configure(malformed, 1f);
+        Equal(recovery.Error is not null, true, "corrupt MP3: rejected at Apply");
+        using var exclusive = File.Open(malformed, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        Equal(exclusive.Length > 0, true, "corrupt MP3: failed decoder constructor releases file");
+    }
+    finally { File.Delete(malformed); }
+}
+
+static void RunOnThread(Action action, ApartmentState apartment)
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        try { action(); }
+        catch (Exception exception) { failure = exception; }
+    }) { IsBackground = true };
+    thread.SetApartmentState(apartment);
+    thread.Start();
+    if (!thread.Join(TimeSpan.FromSeconds(15)))
+        throw new TimeoutException("Audio worker did not finish.");
+    if (failure is not null)
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+}
 
 void ValidateOneShot(string path)
 {
@@ -195,7 +317,7 @@ void ValidateSound(string path, string label)
     var maxHalfError = full.Samples.Zip(half.Samples, (original, scaled) => Math.Abs(scaled - original * 0.5f)).Max();
     Equal(maxHalfError < 0.000001f, true, $"{label}: half volume scales every sample by 0.5");
 
-    using var live = new AudioFileReader(path);
+    using var live = new SoundFileReader(path);
     var chunk = new float[Math.Min(128, full.Samples.Length / 4)];
     var firstRead = live.Read(chunk, 0, chunk.Length);
     var positionBeforeVolumeChange = live.Position;
@@ -213,7 +335,7 @@ void ValidateSound(string path, string label)
 
 static (WaveFormat Format, float[] Samples) Decode(string path, float volume)
 {
-    using var reader = new AudioFileReader(path) { Volume = volume };
+    using var reader = new SoundFileReader(path) { Volume = volume };
     var samples = new List<float>();
     var buffer = new float[4096];
     int count;
