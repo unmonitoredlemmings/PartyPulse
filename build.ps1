@@ -31,8 +31,8 @@ try {
 
     $distribution = Join-Path $projectRoot 'dist'
     New-Item -ItemType Directory -Force -Path $distribution | Out-Null
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'PartyPulse\bin\Release\PartyPulse\latest.zip') -Destination (Join-Path $distribution 'PartyPulse-1.0.2.zip') -Force
-    Write-Host "Plugin package: $(Join-Path $distribution 'PartyPulse-1.0.2.zip')"
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'PartyPulse\bin\Release\PartyPulse\latest.zip') -Destination (Join-Path $distribution 'PartyPulse-1.0.3.zip') -Force
+    Write-Host "Plugin package: $(Join-Path $distribution 'PartyPulse-1.0.3.zip')"
 } finally {
     foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name], 'Process') }
 }

@@ -2,6 +2,12 @@
 
 A Windows Dalamud/XIVLauncher plugin that watches party HP and loops a sound while someone you are watching needs attention.
 
+## Version 1.0.3 audio fix
+
+MP3 playback now uses a managed decoder for both warning and recovery sounds. This removes the Windows Media Foundation `IMFSourceReader` / `0x80004002 (E_NOINTERFACE)` failure reported during playback. The bundled sounds, custom MP3 support, volume settings, and health behavior are preserved.
+
+Existing users can update PartyPulse through `/xlplugins`, then reopen `/partypulse` and test both sounds. The repository URL stays the same. If the old error remains after updating, disable and re-enable PartyPulse to reload it.
+
 ## Use it
 
 1. Open `/xlsettings` in FFXIV and go to **Experimental > Custom Plugin Repositories**.
@@ -40,7 +46,7 @@ For local development, build the project (or extract the packaged ZIP to a perma
 
 **Independent volume:** **Alert volume** controls only PartyPulse's sound effect, separately from FFXIV's music, effects, and master-volume settings. The range is 0–100%: 0% mutes the alert, and 100% plays at the file's full volume. The default is 50%. Changes apply immediately while a warning or preview plays and are saved on slider release. This software gain does not change the game's audio settings or the Windows device volume; Windows system/mixer mute and device volume still apply.
 
-PCM WAV and supported MP3 files play through Windows' default output device. Changing Windows' output device may require a plugin reload. Sound previews last five seconds, and a real low-health alert takes priority.
+PCM/IEEE-float WAV and MP3 files play through Windows' default output device. MP3 decoding uses NLayer and does not require Windows Media Foundation or a system MP3 codec. Compressed WAV formats are rejected with a message to use PCM/float WAV or MP3. Changing Windows' output device may require a plugin reload. Sound previews last five seconds, and a real low-health alert takes priority.
 
 Settings, selections, and volume are saved through Dalamud's normal plugin configuration storage. Custom sound files stay at the path you choose; they are not copied into the package.
 
@@ -65,7 +71,7 @@ Run from this project folder:
 .\build.ps1
 ```
 
-The script builds Release, runs the health and audio checks (including decoding both bundled MP3s, checking volume scaling, and recovery transitions) without playing sound, and writes `dist/PartyPulse-1.0.2.zip`. It uses a workspace-local SDK if one exists at `../.tools/dotnet`; otherwise it uses `dotnet` on PATH. Build caches and temporary files stay local, and environment overrides are restored afterward. Set `DALAMUD_HOME` before building if Dalamud is installed elsewhere.
+The script builds Release, runs the health and audio checks (including decoding both bundled MP3s, checking volume scaling, and recovery transitions) without playing sound, and writes `dist/PartyPulse-1.0.3.zip`. It uses a workspace-local SDK if one exists at `../.tools/dotnet`; otherwise it uses `dotnet` on PATH. Build caches and temporary files stay local, and environment overrides are restored afterward. Set `DALAMUD_HOME` before building if Dalamud is installed elsewhere.
 
 You can also use standard commands with your usual development environment:
 
@@ -75,7 +81,7 @@ dotnet run --project PartyPulse.Tests -c Release
 dotnet run --project PartyPulse.AudioTests -c Release -- .\PartyPulse\Assets\low-hp-pokemon.mp3 .\PartyPulse\Assets\uwu-hannah.mp3
 ```
 
-Tests cover inclusive thresholds, duo recovery, full-party selection, missing members, party reordering, unavailable HP, KO handling, numeric overflow, recovery transitions without false positives, audio looping, one-time playback, empty/corrupt files, disposal, MP3 decoding, and independent volume scaling. They do not require the game or play audio.
+Tests cover inclusive thresholds, duo recovery, full-party selection, missing members, party reordering, unavailable HP, KO handling, numeric overflow, recovery transitions without false positives, audio looping, one-time playback, empty/corrupt files, disposal, MP3 decoding, and independent volume scaling. Audio regression checks prepare sounds on an STA thread, then decode and rewind them on a separate MTA worker to exercise the thread handoff that failed in 1.0.2. They do not require the game or play audio.
 
 **Live validation remains:** Load in-game, select a party member, test both sounds, and confirm an HP dip starts the warning loop and recovery stops it. Verify that recovery stays silent until enabled, then plays exactly once on healing above the threshold. Repeat in duo/party mode, then check party departure, area changes, pause, and plugin unload. Compilation and automated checks do not replace this in-game test.
 
@@ -86,7 +92,7 @@ Tests cover inclusive thresholds, duo recovery, full-party selection, missing me
 - `PartyPulse.Tests`: executable health checks with no test-framework dependency.
 - `PartyPulse.AudioTests`: executable audio stream/error checks; never starts device playback.
 
-Audio playback uses [NAudio](https://github.com/naudio/NAudio), under its MIT license. The bundled sounds are the user-provided `low-hp-pokemon.mp3` and `uwu-hannah.mp3`.
+Audio output and WAV reading use [NAudio](https://github.com/naudio/NAudio); MP3 decoding uses [NLayer](https://github.com/naudio/NLayer). Both use the MIT license; their notices are included in the package. The bundled sounds are the user-provided `low-hp-pokemon.mp3` and `uwu-hannah.mp3`.
 
 ## Publishing an update
 

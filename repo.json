@@ -3,7 +3,7 @@
     "Author": "unmonitoredlemmings",
     "Name": "PartyPulse",
     "InternalName": "PartyPulse",
-    "AssemblyVersion": "1.0.2.0",
+    "AssemblyVersion": "1.0.3.0",
     "Description": "Watch one party member, a duo, or your entire party. Loop a custom sound when monitored HP reaches your chosen threshold, and stop when everyone recovers.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/unmonitoredlemmings/PartyPulse",
@@ -22,8 +22,8 @@
     "AcceptsFeedback": true,
     "IsHide": false,
     "IsTestingExclusive": false,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/unmonitoredlemmings/PartyPulse/main/releases/PartyPulse-1.0.2.zip",
-    "DownloadLinkUpdate": "https://raw.githubusercontent.com/unmonitoredlemmings/PartyPulse/main/releases/PartyPulse-1.0.2.zip",
-    "LastUpdate": 1793976150
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/unmonitoredlemmings/PartyPulse/main/releases/PartyPulse-1.0.3.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/unmonitoredlemmings/PartyPulse/main/releases/PartyPulse-1.0.3.zip",
+    "LastUpdate": 1794488124
   }
 ]
