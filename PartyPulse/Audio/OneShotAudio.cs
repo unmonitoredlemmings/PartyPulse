@@ -51,7 +51,7 @@ internal sealed class OneShotAudio : IDisposable
                     !extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase))
                     throw new NotSupportedException("Choose a WAV or MP3 recovery sound.");
 
-                using var reader = new AudioFileReader(path);
+                using var reader = new SoundFileReader(path);
                 var probe = new float[Math.Max(1024, reader.WaveFormat.Channels)];
                 if (reader.Read(probe, 0, probe.Length) == 0)
                     throw new InvalidDataException("The selected file contains no playable audio.");
@@ -136,7 +136,7 @@ internal sealed class OneShotAudio : IDisposable
     private sealed class PlaybackSession
     {
         private readonly object resourceGate = new();
-        private readonly AudioFileReader reader;
+        private readonly SoundFileReader reader;
         private readonly IWavePlayer output;
         private Exception? failure;
         private bool started;
@@ -145,7 +145,7 @@ internal sealed class OneShotAudio : IDisposable
 
         public PlaybackSession(string path, float volume, Func<IWavePlayer> outputFactory)
         {
-            reader = new AudioFileReader(path) { Volume = volume };
+            reader = new SoundFileReader(path) { Volume = volume };
             try
             {
                 output = outputFactory();

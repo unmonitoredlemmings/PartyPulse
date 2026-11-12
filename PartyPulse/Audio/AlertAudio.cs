@@ -13,12 +13,17 @@ namespace PartyPulse.Audio;
 internal sealed class AlertAudio : IDisposable
 {
     private readonly object gate = new();
+    private readonly Func<IWavePlayer> outputFactory;
     private PlaybackSession? session;
     private string? configuredPath;
     private string? error;
     private bool alertRequested;
     private long previewDeadline;
     private bool disposed;
+
+    public AlertAudio() : this(() => new WaveOutEvent { DesiredLatency = 100, NumberOfBuffers = 2 }) { }
+
+    internal AlertAudio(Func<IWavePlayer> outputFactory) => this.outputFactory = outputFactory;
 
     public string? Error { get { lock (gate) return error ?? session?.Failure?.Message; } }
     public bool IsPlaying { get { lock (gate) return session?.State == PlaybackState.Playing; } }
@@ -74,7 +79,7 @@ internal sealed class AlertAudio : IDisposable
                 !extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase))
                 throw new NotSupportedException("Choose a WAV or MP3 sound file.");
 
-            session = new PlaybackSession(path, volume);
+            session = new PlaybackSession(path, volume, outputFactory);
             RefreshPlayback();
         }
         catch (Exception exception)
@@ -183,20 +188,28 @@ internal sealed class AlertAudio : IDisposable
 
     private sealed class PlaybackSession
     {
-        private readonly AudioFileReader reader;
+        private readonly SoundFileReader reader;
         private readonly LoopStream loop;
-        private readonly WaveOutEvent output;
+        private readonly IWavePlayer output;
         private Exception? failure;
         private int retired;
         private int resourcesDisposed;
         private int playbackEnded;
         private bool started;
 
-        public PlaybackSession(string path, float volume)
+        public PlaybackSession(string path, float volume, Func<IWavePlayer> outputFactory)
         {
-            reader = new AudioFileReader(path) { Volume = volume };
+            reader = new SoundFileReader(path) { Volume = volume };
             loop = new LoopStream(reader);
-            output = new WaveOutEvent { DesiredLatency = 100, NumberOfBuffers = 2 };
+            try
+            {
+                output = outputFactory();
+            }
+            catch
+            {
+                loop.Dispose();
+                throw;
+            }
             output.PlaybackStopped += OnPlaybackStopped;
 
             try
